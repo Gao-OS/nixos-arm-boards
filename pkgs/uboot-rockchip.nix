@@ -1,22 +1,32 @@
-{ pkgs, stdenv, lib, fetchpatch, fetchFromGitHub, buildUBoot, buildPackages }:
-
-let
-  buildPatchedUBoot =
-    { defconfig, BL31, ROCKCHIP_TPL ? "", extraPatches ? [ ] }:
-    let
-      inherit defconfig BL31 ROCKCHIP_TPL extraPatches;
-      src = fetchFromGitHub {
-        owner = "u-boot";
-        repo = "u-boot";
-        rev = "v2024.04";
-        sha256 = "IlaDdjKq/Pq2orzcU959h93WXRZfvKBGDO/MFw9mZMg=";
-      };
-      version = "v2024.04-0-g25049ad5608"; # git describe --long
-    in buildUBoot {
+{
+  pkgs,
+  stdenv,
+  lib,
+  fetchpatch,
+  fetchFromGitHub,
+  buildUBoot,
+  buildPackages,
+}: let
+  buildPatchedUBoot = {
+    defconfig,
+    BL31,
+    ROCKCHIP_TPL ? "",
+    extraPatches ? [],
+  }: let
+    inherit defconfig BL31 ROCKCHIP_TPL extraPatches;
+    src = fetchFromGitHub {
+      owner = "u-boot";
+      repo = "u-boot";
+      rev = "v2024.10";
+      sha256 = "UPy7XM1NGjbEt+pQr4oQrzD7wWWEtYDOPWTD+CNYMHs=";
+    };
+    version = "v2024.10-0-gf919c3a889"; # git describe --long
+  in
+    buildUBoot {
       src = src;
       version = version;
       defconfig = defconfig;
-      filesToInstall = [ "u-boot-rockchip.bin" ];
+      filesToInstall = ["u-boot-rockchip.bin"];
 
       extraPatches = extraPatches;
 
@@ -24,7 +34,7 @@ let
       ROCKCHIP_TPL = ROCKCHIP_TPL;
 
       extraMeta = {
-        platforms = [ "aarch64-linux" ];
+        platforms = ["aarch64-linux"];
         license = lib.licenses.unfreeRedistributableFirmware;
       };
     };
@@ -34,5 +44,5 @@ let
       BL31 = "${pkgs.armTrustedFirmwareRK3588}/bl31.elf";
     };
 in {
-  uBootRadxa-5-ITX = buildRK3588UBoot "roc-pc-rk3588_defconfig";
+  uBootRadxa-5-ITX = buildRK3588UBoot "rock-5-itx-rk3588_defconfig";
 }
