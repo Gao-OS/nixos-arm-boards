@@ -1,0 +1,142 @@
+name: "Release Images"
+on:
+  workflow_run:
+    workflows: [Update Flakes]
+    types:
+    - completed
+  push:
+    branches:
+    - main
+
+permissions:
+  contents: write
+
+jobs:
+  build_packages:
+    strategy:
+      matrix:
+        package:
+        - kernel_linux_6_6_rockchip.kernel
+        - kernel_linux_6_9_rockchip.kernel
+        - uBootRadxa-5-ITX
+    runs-on: ubuntu-latest
+    steps:
+    - name: Free disk space
+      run: |
+        df -h
+        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/android $AGENT_TOOLSDIRECTORY
+        sudo docker image prune --all --force
+        df -h
+    - uses: actions/checkout@v4
+    - run: |
+        DEBIAN_FRONTEND=noninteractive
+        sudo apt-get update -q -y && sudo apt-get install -q -y qemu-system-aarch64 qemu-efi binfmt-support qemu-user-static
+    - uses: cachix/install-nix-action@v20
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+          extra-platforms = aarch64-linux
+    - run: |
+        nix build -L -j4 .#${{ matrix.package }}
+
+  build_example:
+    runs-on: ubuntu-latest
+    needs: build_packages
+    steps:
+    - uses: actions/checkout@v4
+    - run: |
+        DEBIAN_FRONTEND=noninteractive
+        sudo apt-get update -q -y && sudo apt-get install -q -y qemu-system-aarch64 qemu-efi binfmt-support qemu-user-static
+    - uses: cachix/install-nix-action@v20
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+          extra-platforms = aarch64-linux
+    - working-directory: ./example
+      run: |
+        nix build -L -j4 --accept-flake-config --override-input rockchip ..
+
+  create_release:
+    runs-on: ubuntu-latest
+    needs: [build_packages, build_example]
+    steps:
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@v20
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+          extra-platforms = aarch64-linux
+    - name: Get NixOS version
+      id: version
+      run: |
+        set -Eeuo pipefail
+        echo "version=$(nix eval .#uBootRadxa-5-ITX.imageName | cut -f4 -d-)" >> $GITHUB_OUTPUT
+    - uses: mukunku/tag-exists-action@v1.6.0
+      id: checkTag
+      with:
+        tag: v${{ steps.version.outputs.version }}
+    - id: create_release
+      uses: actions/create-release@v1
+      if: steps.checkTag.outputs.exists == 'false'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.version.outputs.version }}
+        release_name: NixOS ${{ steps.version.outputs.version }}
+        draft: false
+        prerelease: false
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.version.outputs.version }}
+
+  build_and_upload:
+    needs: create_release
+    if: needs.create_release.outputs.upload_url != ''
+    strategy:
+      matrix:
+        board:
+        - uBootRadxa-5-ITX
+    runs-on: ubuntu-latest
+    steps:
+    - name: Free disk space
+      run: |
+        df -h
+        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/android $AGENT_TOOLSDIRECTORY
+        sudo docker image prune --all --force
+        df -h
+    - uses: actions/checkout@v4
+    - run: |
+        DEBIAN_FRONTEND=noninteractive
+        sudo apt-get update -q -y && sudo apt-get install -q -y qemu-system-aarch64 qemu-efi binfmt-support qemu-user-static
+    - uses: cachix/install-nix-action@v20
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+          extra-platforms = aarch64-linux
+    - uses: cachix/cachix-action@v12
+      with:
+        name: nabam-nixos-rockchip
+        authToken: '${{ secrets.CACHIX_TOKEN }}'
+        pushFilter: '(-nixos-sd-image-.*)\.img$|-ext4-fs\.img$'
+    - run: |
+        nix build -L -j4 .#${{ matrix.board }}
+    - name: Compress with zstd
+      id: zstd
+      run: |
+        set -Eeuo pipefail
+        FILE="$(sed --expression 's/\([A-Z][a-z]\)/-\L\1/g' --expression 's/\([a-z]\)\([A-Z]\)/\1-\L\2/g' --expression 's/\(.*\)/\L\1/g' --expression 's/^-//' <<< "${{ matrix.board }}")-nixos-sd-image-aarch64-linux.img.zst"
+        zstd -o ./$FILE ./result/sd-image/nixos-sd-image-${{ needs.create_release.outputs.version }}-aarch64-linux.img
+        echo image=$FILE >> $GITHUB_OUTPUT
+    - id: upload-release-asset
+      uses: svenstaro/upload-release-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ./${{ steps.zstd.outputs.image }}
+        asset_name: ${{ steps.zstd.outputs.image }}
+        tag: v${{ needs.create_release.outputs.version }}
