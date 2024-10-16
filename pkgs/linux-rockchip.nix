@@ -1,6 +1,7 @@
-{ pkgs, lib }:
-
-let
+{
+  pkgs,
+  lib,
+}: let
   kernelConfig = with lib.kernel; {
     ARCH_ROCKCHIP = yes;
     CHARGER_RK817 = yes;
@@ -38,20 +39,10 @@ let
     STMMAC_ETH = yes;
     VIDEO_HANTRO_ROCKCHIP = yes;
   };
-in with pkgs.linuxKernel; {
-  linux_6_6 = pkgs.linuxPackages_6_6;
-  linux_6_6_rockchip = packagesFor
-    (kernels.linux_6_6.override { structuredExtraConfig = kernelConfig; });
-
-  linux_6_9 = pkgs.linuxPackages_6_9;
-  linux_6_9_rockchip = packagesFor
-    (kernels.linux_6_9.override { structuredExtraConfig = kernelConfig; });
-
-  linux_6_9_pinetab = packagesFor (kernels.linux_6_9.override {
-    argsOverride = {
-
-    };
-    structuredExtraConfig = kernelConfig // pinetabKernelConfig;
-  });
-}
-
+in
+  with pkgs.linuxKernel; {
+    linux_6_6 = pkgs.linuxPackages_6_6;
+    linux_6_6_rockchip =
+      packagesFor
+      (kernels.linux_6_6.override {structuredExtraConfig = kernelConfig;});
+  }
