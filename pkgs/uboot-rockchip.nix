@@ -42,8 +42,8 @@
     rkbin = fetchFromGitHub {
       owner = "rockchip-linux";
       repo = "rkbin";
-      rev = "b4558da0860ca48bf1a571dd33ccba580b9abe23";
-      sha256 = "KUZQaQ+IZ0OynawlYGW99QGAOmOrGt2CZidI3NTxFw8=";
+      rev = "a2a0b89b6c8c612dca5ed9ed8a68db8a07f68bc0";
+      sha256 = "OWnpO51buf5Mz1hFJ7wYIWiAaWNNJDgC/ycOu+0UpYI=";
     };
   in
     buildPatchedUBoot {
