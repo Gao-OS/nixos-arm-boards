@@ -43,7 +43,7 @@
       owner = "rockchip-linux";
       repo = "rkbin";
       rev = "a2a0b89b6c8c612dca5ed9ed8a68db8a07f68bc0";
-      sha256 = "OWnpO51buf5Mz1hFJ7wYIWiAaWNNJDgC/ycOu+0UpYI=";
+      sha256 = "U/jeUsV7bhqMw3BljmO6SI07NCDAd/+sEp3dZnyXeeA=";
     };
   in
     buildPatchedUBoot {
