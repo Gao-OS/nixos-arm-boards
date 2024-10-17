@@ -38,10 +38,18 @@
         license = lib.licenses.unfreeRedistributableFirmware;
       };
     };
-  buildRK3588UBoot = defconfig:
+  buildRK3588UBoot = defconfig: let
+    rkbin = fetchFromGitHub {
+      owner = "rockchip-linux";
+      repo = "rkbin";
+      rev = "b4558da0860ca48bf1a571dd33ccba580b9abe23";
+      sha256 = "KUZQaQ+IZ0OynawlYGW99QGAOmOrGt2CZidI3NTxFw8=";
+    };
+  in
     buildPatchedUBoot {
       inherit defconfig;
       BL31 = "${pkgs.armTrustedFirmwareRK3588}/bl31.elf";
+      ROCKCHIP_TPL = rkbin + "/bin/rk35/rk3588_ddr_lp4_2112MHz_lp5_2400MHz_v1.16.bin";
     };
 in {
   uBootRadxa-5-ITX = buildRK3588UBoot "rock-5-itx-rk3588_defconfig";
